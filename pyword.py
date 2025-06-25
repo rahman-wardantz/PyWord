@@ -7,6 +7,8 @@ class PyWordApp:
     def __init__(self, root):
         self.root = root
         self.root.title("PyWord - MS Word-like App")
+        self.filename = None
+        self.text_modified = False
         self.text = tk.Text(root, wrap='word', undo=True)
         self.text.pack(expand=1, fill='both')
         self.create_menu()
@@ -14,6 +16,8 @@ class PyWordApp:
         self.create_statusbar()
         self.text.bind('<KeyRelease>', self.update_statusbar)
         self.text.bind('<ButtonRelease>', self.update_statusbar)
+        self.text.bind('<<Modified>>', self.on_modified)
+        self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
         self.bold_font = font.Font(self.text, self.text.cget("font"))
         self.bold_font.configure(weight="bold")
         self.italic_font = font.Font(self.text, self.text.cget("font"))
@@ -23,14 +27,18 @@ class PyWordApp:
         self.text.tag_configure("bold", font=self.bold_font)
         self.text.tag_configure("italic", font=self.italic_font)
         self.text.tag_configure("underline", font=self.underline_font)
+        self.root.bind('<Control-b>', lambda e: self.make_bold())
+        self.root.bind('<Control-i>', lambda e: self.make_italic())
+        self.root.bind('<Control-u>', lambda e: self.make_underline())
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
         filemenu = tk.Menu(menubar, tearoff=0)
+        filemenu.add_command(label="New", command=self.new_doc)
         filemenu.add_command(label="Open", command=self.open_docx)
         filemenu.add_command(label="Save As", command=self.save_docx)
         filemenu.add_separator()
-        filemenu.add_command(label="Exit", command=self.root.quit)
+        filemenu.add_command(label="Exit", command=self.on_exit)
         menubar.add_cascade(label="File", menu=filemenu)
         self.root.config(menu=menubar)
 
@@ -71,7 +79,35 @@ class PyWordApp:
         except tk.TclError:
             pass  # No selection
 
+    def new_doc(self):
+        if self.text_modified and not self.confirm_discard_changes():
+            return
+        self.text.delete(1.0, tk.END)
+        self.filename = None
+        self.text_modified = False
+        self.update_title()
+
+    def on_modified(self, event=None):
+        self.text_modified = self.text.edit_modified()
+        self.update_title()
+        self.text.edit_modified(False)
+
+    def confirm_discard_changes(self):
+        return messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Discard them?")
+
+    def update_title(self):
+        name = self.filename if self.filename else "Untitled"
+        mod = "*" if self.text_modified else ""
+        self.root.title(f"PyWord - {name}{mod}")
+
+    def on_exit(self):
+        if self.text_modified and not self.confirm_discard_changes():
+            return
+        self.root.destroy()
+
     def open_docx(self):
+        if self.text_modified and not self.confirm_discard_changes():
+            return
         filepath = filedialog.askopenfilename(filetypes=[("Word Documents", "*.docx")])
         if filepath:
             try:
@@ -79,6 +115,9 @@ class PyWordApp:
                 self.text.delete(1.0, tk.END)
                 for para in doc.paragraphs:
                     self.text.insert(tk.END, para.text + '\n')
+                self.filename = filepath
+                self.text_modified = False
+                self.update_title()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to open file: {e}")
 
@@ -91,6 +130,9 @@ class PyWordApp:
                 for line in content:
                     doc.add_paragraph(line)
                 doc.save(filepath)
+                self.filename = filepath
+                self.text_modified = False
+                self.update_title()
                 messagebox.showinfo("Saved", "File saved successfully!")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save file: {e}")
