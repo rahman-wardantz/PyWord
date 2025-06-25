@@ -49,6 +49,12 @@ class PyWordApp:
         menubar.add_cascade(label="File", menu=filemenu)
         self.root.config(menu=menubar)
 
+    def set_font_size(self, size):
+        self.text.config(font=(self.text.cget("font"), size))
+        self.bold_font.configure(size=size)
+        self.italic_font.configure(size=size)
+        self.underline_font.configure(size=size)
+
     def create_toolbar(self):
         toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED)
         bold_btn = tk.Button(toolbar, text="Bold", command=self.make_bold)
@@ -57,6 +63,13 @@ class PyWordApp:
         italic_btn.pack(side=tk.LEFT, padx=2, pady=2)
         underline_btn = tk.Button(toolbar, text="Underline", command=self.make_underline)
         underline_btn.pack(side=tk.LEFT, padx=2, pady=2)
+        clear_btn = tk.Button(toolbar, text="Clear Formatting", command=self.clear_formatting)
+        clear_btn.pack(side=tk.LEFT, padx=2, pady=2)
+        # Font size dropdown
+        font_size_var = tk.IntVar(value=12)
+        font_size_menu = tk.OptionMenu(toolbar, font_size_var, *[8, 10, 12, 14, 16, 18, 20, 24, 28, 32], command=self.set_font_size)
+        font_size_menu.config(width=4)
+        font_size_menu.pack(side=tk.LEFT, padx=2, pady=2)
         find_btn = tk.Button(toolbar, text="Find", command=self.find_text)
         find_btn.pack(side=tk.LEFT, padx=2, pady=2)
         findnext_btn = tk.Button(toolbar, text="Find Next", command=self.find_next)
@@ -94,6 +107,11 @@ class PyWordApp:
                 self.text.tag_add(tag, start, end)
         except tk.TclError:
             pass  # No selection
+
+    def clear_formatting(self):
+        self.text.tag_remove("bold", "1.0", tk.END)
+        self.text.tag_remove("italic", "1.0", tk.END)
+        self.text.tag_remove("underline", "1.0", tk.END)
 
     def new_doc(self):
         if self.text_modified and not self.confirm_discard_changes():
