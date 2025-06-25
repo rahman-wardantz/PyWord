@@ -63,6 +63,8 @@ class PyWordApp:
         findnext_btn.pack(side=tk.LEFT, padx=2, pady=2)
         replace_btn = tk.Button(toolbar, text="Replace", command=self.replace_text)
         replace_btn.pack(side=tk.LEFT, padx=2, pady=2)
+        replacenext_btn = tk.Button(toolbar, text="Replace Next", command=self.replace_next)
+        replacenext_btn.pack(side=tk.LEFT, padx=2, pady=2)
         toolbar.pack(side=tk.TOP, fill=tk.X)
 
     def create_statusbar(self):
@@ -191,6 +193,24 @@ class PyWordApp:
         self.text.tag_remove('search_highlight', '1.0', tk.END)
         self.last_search = None
         self.last_search_idx = None
+
+    def replace_next(self):
+        if not self.last_search:
+            self.replace_text()
+            return
+        idx = self.text.search(self.last_search, self.text.index(tk.INSERT)+"+1c", stopindex=tk.END, nocase=1)
+        if idx:
+            end = f"{idx}+{len(self.last_search)}c"
+            self.text.tag_remove(tk.SEL, '1.0', tk.END)
+            self.text.tag_add(tk.SEL, idx, end)
+            self.text.mark_set(tk.INSERT, end)
+            self.text.see(idx)
+            replace_with = simpledialog.askstring("Replace Next", f"Replace this '{self.last_search}' with:")
+            if replace_with is not None:
+                self.text.delete(idx, end)
+                self.text.insert(idx, replace_with)
+        else:
+            messagebox.showinfo("Replace Next", f'No more "{self.last_search}" found.')
 
     def on_modified(self, event=None):
         self.text_modified = self.text.edit_modified()
