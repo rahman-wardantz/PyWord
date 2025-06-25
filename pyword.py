@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from docx import Document
 from tkinter import font
+import os
 
 class PyWordApp:
     def __init__(self, root):
@@ -30,13 +31,15 @@ class PyWordApp:
         self.root.bind('<Control-b>', lambda e: self.make_bold())
         self.root.bind('<Control-i>', lambda e: self.make_italic())
         self.root.bind('<Control-u>', lambda e: self.make_underline())
+        self.root.bind('<Control-s>', lambda e: self.save_docx())
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
         filemenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_command(label="New", command=self.new_doc)
         filemenu.add_command(label="Open", command=self.open_docx)
-        filemenu.add_command(label="Save As", command=self.save_docx)
+        filemenu.add_command(label="Save", command=self.save_docx)
+        filemenu.add_command(label="Save As", command=self.saveas_docx)
         filemenu.add_separator()
         filemenu.add_command(label="Exit", command=self.on_exit)
         menubar.add_cascade(label="File", menu=filemenu)
@@ -53,12 +56,13 @@ class PyWordApp:
         toolbar.pack(side=tk.TOP, fill=tk.X)
 
     def create_statusbar(self):
-        self.statusbar = tk.Label(self.root, text="Ln 1, Col 1", anchor='w')
+        self.statusbar = tk.Label(self.root, text="Ln 1, Col 1 | Untitled", anchor='w')
         self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def update_statusbar(self, event=None):
         row, col = self.text.index(tk.INSERT).split('.')
-        self.statusbar.config(text=f"Ln {int(row)}, Col {int(col)+1}")
+        fname = os.path.basename(self.filename) if self.filename else "Untitled"
+        self.statusbar.config(text=f"Ln {int(row)}, Col {int(col)+1} | {fname}")
 
     def make_bold(self):
         self.toggle_tag("bold")
@@ -87,9 +91,36 @@ class PyWordApp:
         self.text_modified = False
         self.update_title()
 
+    def save_docx(self):
+        if self.filename:
+            if os.path.exists(self.filename):
+                if not messagebox.askyesno("Overwrite", f"File {os.path.basename(self.filename)} exists. Overwrite?"):
+                    return
+            try:
+                doc = Document()
+                content = self.text.get(1.0, tk.END).strip().split('\n')
+                for line in content:
+                    doc.add_paragraph(line)
+                doc.save(self.filename)
+                self.text_modified = False
+                self.update_title()
+                self.update_statusbar()
+                messagebox.showinfo("Saved", f"File saved: {os.path.basename(self.filename)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save file: {e}")
+        else:
+            self.saveas_docx()
+
+    def saveas_docx(self):
+        filepath = filedialog.asksaveasfilename(defaultextension=".docx", filetypes=[("Word Documents", "*.docx")])
+        if filepath:
+            self.filename = filepath
+            self.save_docx()
+
     def on_modified(self, event=None):
         self.text_modified = self.text.edit_modified()
         self.update_title()
+        self.update_statusbar()
         self.text.edit_modified(False)
 
     def confirm_discard_changes(self):
@@ -120,22 +151,6 @@ class PyWordApp:
                 self.update_title()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to open file: {e}")
-
-    def save_docx(self):
-        filepath = filedialog.asksaveasfilename(defaultextension=".docx", filetypes=[("Word Documents", "*.docx")])
-        if filepath:
-            try:
-                doc = Document()
-                content = self.text.get(1.0, tk.END).strip().split('\n')
-                for line in content:
-                    doc.add_paragraph(line)
-                doc.save(filepath)
-                self.filename = filepath
-                self.text_modified = False
-                self.update_title()
-                messagebox.showinfo("Saved", "File saved successfully!")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save file: {e}")
 
 def main():
     root = tk.Tk()
