@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 from docx import Document
 from tkinter import font
 import os
@@ -32,6 +32,10 @@ class PyWordApp:
         self.root.bind('<Control-i>', lambda e: self.make_italic())
         self.root.bind('<Control-u>', lambda e: self.make_underline())
         self.root.bind('<Control-s>', lambda e: self.save_docx())
+        self.root.bind('<Control-f>', lambda e: self.find_text())
+        self.last_search = None
+        self.last_search_idx = None
+        self.text.tag_configure('search_highlight', background='yellow')
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
@@ -53,6 +57,10 @@ class PyWordApp:
         italic_btn.pack(side=tk.LEFT, padx=2, pady=2)
         underline_btn = tk.Button(toolbar, text="Underline", command=self.make_underline)
         underline_btn.pack(side=tk.LEFT, padx=2, pady=2)
+        find_btn = tk.Button(toolbar, text="Find", command=self.find_text)
+        find_btn.pack(side=tk.LEFT, padx=2, pady=2)
+        findnext_btn = tk.Button(toolbar, text="Find Next", command=self.find_next)
+        findnext_btn.pack(side=tk.LEFT, padx=2, pady=2)
         toolbar.pack(side=tk.TOP, fill=tk.X)
 
     def create_statusbar(self):
@@ -117,10 +125,48 @@ class PyWordApp:
             self.filename = filepath
             self.save_docx()
 
+    def find_text(self):
+        query = simpledialog.askstring("Find", "Enter text to find:")
+        if not query:
+            return
+        self.text.tag_remove('search_highlight', '1.0', tk.END)
+        start = '1.0'
+        found = False
+        while True:
+            idx = self.text.search(query, start, stopindex=tk.END, nocase=1)
+            if not idx:
+                break
+            end = f"{idx}+{len(query)}c"
+            self.text.tag_add('search_highlight', idx, end)
+            start = end
+            found = True
+        if found:
+            self.last_search = query
+            self.last_search_idx = '1.0'
+            self.find_next()
+        else:
+            messagebox.showinfo("Find", f'"{query}" not found.')
+
+    def find_next(self):
+        if not self.last_search:
+            return
+        idx = self.text.search(self.last_search, self.text.index(tk.INSERT)+"+1c", stopindex=tk.END, nocase=1)
+        if idx:
+            end = f"{idx}+{len(self.last_search)}c"
+            self.text.tag_remove(tk.SEL, '1.0', tk.END)
+            self.text.tag_add(tk.SEL, idx, end)
+            self.text.mark_set(tk.INSERT, end)
+            self.text.see(idx)
+        else:
+            messagebox.showinfo("Find", f'No more "{self.last_search}" found.')
+
     def on_modified(self, event=None):
         self.text_modified = self.text.edit_modified()
         self.update_title()
         self.update_statusbar()
+        self.text.tag_remove('search_highlight', '1.0', tk.END)
+        self.last_search = None
+        self.last_search_idx = None
         self.text.edit_modified(False)
 
     def confirm_discard_changes(self):
