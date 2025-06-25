@@ -50,14 +50,34 @@ class PyWordApp:
         self.root.config(menu=menubar)
 
     def set_font_size(self, size):
-        self.text.config(font=(self.text.cget("font"), size))
+        # Optimize: update font only if changed, and keep font family and style
+        try:
+            size = int(size)
+        except Exception:
+            return
+        current_font = font.Font(font=self.text.cget("font"))
+        if current_font['size'] == size:
+            return
+        # Use full font config to avoid resizing widget
+        font_tuple = (current_font.actual('family'), size, current_font.actual('weight'), current_font.actual('slant'), int(current_font.actual('underline')))
+        self.text.configure(font=font_tuple)
         self.bold_font.configure(size=size)
         self.italic_font.configure(size=size)
         self.underline_font.configure(size=size)
+        self.statusbar.config(font=(current_font.actual('family'), max(8, size-2)))
+        # Prevent geometry change by forcing the window size to stay
+        self.root.update_idletasks()
+        # Only set minsize once, not every time
+        if not hasattr(self, '_minsize_set'):
+            self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
+            self._minsize_set = True
+        # Set wrap to word to avoid horizontal scroll when font size increases
+        self.text.config(wrap='word')
+        # Keep focus on text widget after font change
+        self.text.focus_set()
 
     def create_toolbar(self):
         toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED, bg='#f0f0f0')
-        # Group formatting buttons in a frame
         format_frame = tk.Frame(toolbar, bg='#f0f0f0')
         bold_btn = tk.Button(format_frame, text="Bold", width=7, command=self.make_bold, bg='#e0e0e0')
         bold_btn.pack(side=tk.LEFT, padx=1, pady=2)
@@ -89,10 +109,12 @@ class PyWordApp:
         find_frame.pack(side=tk.LEFT, padx=4)
         toolbar.pack(side=tk.TOP, fill=tk.X, pady=2)
         # Set text widget font and background for a modern look
-        self.text.config(bg='#fcfcfc', font=(self.text.cget("font"), 12), relief=tk.FLAT, bd=2, insertbackground='#222')
+        self.text.config(bg='#fcfcfc', relief=tk.FLAT, bd=2, insertbackground='#222', wrap='word')
 
     def create_statusbar(self):
-        self.statusbar = tk.Label(self.root, text="Ln 1, Col 1 | Untitled", anchor='w', bg='#eaeaea', fg='#333', font=(self.text.cget("font"), 10))
+        # Optimize: use same font family as editor, smaller size
+        current_font = font.Font(font=self.text.cget("font"))
+        self.statusbar = tk.Label(self.root, text="Ln 1, Col 1 | Untitled", anchor='w', bg='#eaeaea', fg='#333', font=(current_font.actual('family'), max(8, current_font['size']-2)))
         self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def update_statusbar(self, event=None):
